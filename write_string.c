@@ -135,7 +135,7 @@ if (Times_Written!=5)  //caso nao envie algo byte
     return -1;
 
  printf("%d bytes Escritos ou enviados\n", Times_Written);
-    return 0;
+   // return 0;
 
 
 
