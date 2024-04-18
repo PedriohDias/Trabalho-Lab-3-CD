@@ -1,5 +1,5 @@
 /*Non-Canonical Input Processing*/
-
+// este serve para receber os 5 bytes do write string
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
