@@ -1,5 +1,7 @@
 //*Non-Canonical Input Processing*/
 
+// work with the non_string
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -135,7 +137,7 @@ if (Times_Written!=5)  //caso nao envie algo byte
     return -1;
 
  printf("%d bytes Escritos ou enviados\n", Times_Written);
-   // return 0;
+    
 
 
 

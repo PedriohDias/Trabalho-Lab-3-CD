@@ -1,5 +1,5 @@
 /*Non-Canonical Input Processing*/
-// este serve para receber os 5 bytes do write string
+// WORK WITH THE write_string
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -97,6 +97,7 @@ int main(int argc, char** argv)
   
 int Times_Written=0;
 unsigned char receive[2];
+char sent[255];
   // receber os 5 bytes
 
 for(i=0 ; i<5;i++)
@@ -117,7 +118,42 @@ if (Times_Written!=5)  //caso nao envie algo byte
     return -1;
 
  printf("%d bytes Recebidos\n", Times_Written);
-    return 0;
+   // return 0;
+
+
+
+sleep(5);
+
+
+
+
+
+
+    sent[0]= FLAG; // F
+    sent[1]= A_RE ;// A   
+    sent[2]= C_UA; // C
+    sent[3]= BCC(A_EM, C_SET); // BCC
+    sent[4]= FLAG; // F
+
+
+// enviar os 5 bytes
+
+for(i=0 ; i<5;i++)
+ {
+    
+    res= write(fd,&sent[i],1); // retorna o n bytes escrito com sucesso , -1 erro
+    printf("Bytes written %x in %d\n",sent[i],i);
+    Times_Written+=res;
+   
+ }
+
+   // res= write(fd,sent,sent_lenght); // retorna o n bytes escrito com sucesso , -1 erro
+
+if (Times_Written!=5)  //caso nao envie algo byte
+    return -1;
+
+ printf("%d bytes Escritos ou enviados\n", Times_Written);
+    
 
 
 
