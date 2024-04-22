@@ -130,7 +130,7 @@ sleep(5);
 
 
     sent[0]= FLAG; // F
-    sent[1]= A_RE ;// A   
+    sent[1]= A_EM ;// A   
     sent[2]= C_UA; // C
     sent[3]= BCC(A_EM, C_SET); // BCC
     sent[4]= FLAG; // F
