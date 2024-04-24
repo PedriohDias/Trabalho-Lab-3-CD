@@ -5,14 +5,13 @@
 #include <fcntl.h>
 #include <termios.h>
 #include <stdio.h>
-#include <strings.h>
-
 
 #define BAUDRATE B38400
-#define MODEMDEVICE "/dev/ttyS1"
 #define _POSIX_SOURCE 1 /* POSIX compliant source */
 #define FALSE 0
 #define TRUE 1
+
+
 
 
 /* 5 bytes   , Transition conditions */
@@ -29,6 +28,7 @@
 
 
 
+
 /*  State Machine */
 
 #define Start      0
@@ -40,21 +40,14 @@
 
 
 
-volatile int STOP=FALSE;
 
+volatile int STOP=FALSE;
 
 int main(int argc, char** argv)
 {
-    int fd,c, res,Times_Written ,read_resp=0,write_resp=0;
+    int fd,c, res;
     struct termios oldtio,newtio;
-    char buf[255],sent[255];
-    int i, sum = 0, speed = 0;
-
-    size_t buff_lenght=sizeof(buf)/sizeof(buf[0]);
-    size_t sent_lenght=sizeof(sent)/sizeof(sent[0]);
-
-
-// 255 maior numero de 8 bits , 2letras hex=8bits
+    char buf[255];
 
     if ( (argc < 2) ||
          ((strcmp("/dev/ttyS0", argv[1])!=0) &&
@@ -70,12 +63,10 @@ int main(int argc, char** argv)
     */
 
 
-
-
     fd = open(argv[1], O_RDWR | O_NOCTTY );
     if (fd < 0) { perror(argv[1]); exit(-1); }
 
-    if ( tcgetattr(fd,&oldtio) == -1) { /* save current port settings */
+    if (tcgetattr(fd,&oldtio) == -1) { /* save current port settings */
         perror("tcgetattr");
         exit(-1);
     }
@@ -90,8 +81,6 @@ int main(int argc, char** argv)
 
     newtio.c_cc[VTIME]    = 0;   /* inter-character timer unused */
     newtio.c_cc[VMIN]     = 5;   /* blocking read until 5 chars received */
-
-
 
     /*
     VTIME e VMIN devem ser alterados de forma a proteger com um temporizador a
@@ -109,68 +98,48 @@ int main(int argc, char** argv)
     printf("New termios structure set\n");
 
 
-
-
-    sent[0]= FLAG; // F
-    sent[1]= A_EM; // A
-    sent[2]= C_SET; // C
-    sent[3]= 0x04;//BCC(A_EM, C_SET); // BCC
-    sent[4]= FLAG; // F
-
-
-// enviar os 5 bytes
-
-for(i=0 ; i<5;i++)
- {
-    
-    res= write(fd,&sent[i],1); // retorna o n bytes escrito com sucesso , -1 erro
-    printf("Bytes written %d in %d  , writted %x\n",res,i,sent[i]);
-    Times_Written+=res;
- }
-
-   // res= write(fd,sent,sent_lenght); // retorna o n bytes escrito com sucesso , -1 erro
-
-if (Times_Written!=5)  //caso nao envie algo byte
-    return -1;
-
- printf("%d bytes Escritos ou enviados\n", Times_Written);
-    
-
- sleep(3); //envia mas precisa de esperar um bocado para receber ou instantaneo ?
-
-
+// Machine State
 unsigned char buffer_hex[2],Store_hex;
+int read_resp=0;
 
-/*  State Machine of Reception Set Message*/
+int state=0;
 
+printf("\t%d\n\n",state);
 while (STOP==FALSE)  // to last state machine
 { 
     read_resp=read(fd,buffer_hex,1); // read =1 sucess , <0 failure
-    printf(" Receive state %i  , received_byte %x , \n\n",read_resp,buffer_hex[0]);  //HEXADECIMAL
+    printf(" Receive %x  try %d\n\n",buffer_hex[0],read_resp);  //HEXADECIMAL
 
+    
     if(read_resp<0)  
         printf("Could not receive , please try again \n");
 
 
 buffer_hex[1]='\0'; // ultimo espaco como \0
 Store_hex=buffer_hex[0];
-int state=0;
+
+
 
 
 /* Agora State machine */
+
+
+//printf("%d : %x  :%x \n",state,Store_hex,buffer_hex[0]);
 switch (state)
 {
 case Start:
     if(Store_hex==FLAG)
         {
         state=Flag_Rcv;
+
         }
     break;
 
 case Flag_Rcv:
-    if(Store_hex==A_RE)  // basicamente se nao for  A_RE ou flag volta ao inicio
+    if(Store_hex==A_EM)  // basicamente se nao for  A_RE ou flag volta ao inicio
         {
         state=A_Rcv;
+
         break;
         }
     
@@ -184,34 +153,43 @@ case Flag_Rcv:
 
 
 case A_Rcv:
-            if (Store_hex= FLAG)
+            if (Store_hex== FLAG)
             {
                 state = Flag_Rcv;
+
             }
-            if (Store_hex =C_UA)
+            if (Store_hex ==C_SET)
             {
                 state = C_Rcv;
+
             }
             else
             {
                 state = Start;
+
             }
             break;
 
 
-        case C_Rcv:
+    case C_Rcv:
 
-            if (Store_hex= FLAG)
+            if (Store_hex== FLAG)
             {
                 state = Flag_Rcv;
+
             }
-            if (Store_hex=BCC(A_RE,C_UA))
-            {
+            if (Store_hex==BCC(A_EM,C_SET))
+           {
+printf("erro?\n");
                 state = Bcc_Ok;
+    printf("%d",state);    
             }
             else
             {
+printf("ok\n");
+printf("%d",state);
                 state = Start;
+
             }
             break;
         
@@ -221,49 +199,62 @@ case A_Rcv:
             {
                 state=Stop_Final;
                 STOP=TRUE;
+
             }
 
 
 
-printf("\n\n STATE =  %i",STOP);
+printf("\n\t\t STATE =  %i\n",state);
+}
 }
 
 
 
 
+// segunda parte inicio
+int i=0, Times_Written=0;
+char sent[255];
 
+
+// Now we sent 5 bytes ,C and BCC different 
+
+sent[0] = FLAG;
+sent[1] = A_EM;
+sent[2] = C_UA;
+sent[3] = BCC(A_EM , C_UA);
+sent[4] = FLAG;
+
+
+
+for (i=0; i<5; i++)
+{
+res=write(fd,&sent[i],1);
+ printf("Bytes written %x in %d\n",sent[i],i);
+    Times_Written+=res;
 
 
 }
 
-  
+if (Times_Written!=5)  //caso nao envie algo byte
+    return -1;
+
+
+ printf("%d bytes Escritos ou enviados\n", Times_Written);
+
+
+// 
 
 
 
-/*
-    for (i = 0; i < 255; i++) {
-        buf[i] = 'a';
-    }
+// segunda parte fim
 
-    /*testing*/
-  /*  buf[25] = '\n';
 
-    res = write(fd,buf,255);
-    printf("%d bytes written\n", res);
-*/
 
     /*
-    O ciclo FOR e as instruções seguintes devem ser alterados de modo a respeitar
-    o indicado no guião
+    O ciclo WHILE deve ser alterado de modo a respeitar o indicado no guião
     */
 
-
-    if ( tcsetattr(fd,TCSANOW,&oldtio) == -1) {
-        perror("tcsetattr");
-        exit(-1);
-    }
-
-
+    tcsetattr(fd,TCSANOW,&oldtio);
     close(fd);
     return 0;
 }
