@@ -2,6 +2,8 @@
 //sudo socat -d -d PTY,link=/dev/ttyS10,mode=777 PTY,link=/dev/ttyS11,mode=777
 //sudo socat -d -d PTY,link=/dev/ttyS0,mode=777 PTY,link=/dev/ttyS1,mode=777
 
+//Pedro Lin
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
