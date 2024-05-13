@@ -154,8 +154,8 @@ case Start:
                     state = A_Rcv;
                 }
                 else if(Store_hex == FLAG){
-                    //continue;
-break;                 
+state=Flag_Rcv; 
+                                   
                 }
                 else{
                     state = Start;
@@ -173,6 +173,7 @@ break;
                     state = Start;
                 }
                 break;
+
             case C_Rcv:
 
                 x = A_EM^C_SET;
@@ -187,6 +188,7 @@ break;
                     state = Start;
                 }
                 break;
+
             case Bcc_Ok:
                 if(Store_hex == FLAG){
                     state = Stop_Final; 
@@ -206,12 +208,13 @@ for (i=0;i<5;i++){
 sleep(2);
 
 unsigned char w;
+unsigned char set[5];
 
     set[0]=FLAG;
-    set[1]=0x09;
-    set[2]=0x06;             
+    set[1]=0x01; //outro a_ ou xor 
+    set[2]=0x06;    //c_set         
     set[3]=set[1]^set[2];
-    set[4]=set[0];
+    set[4]= FLAG;
         
     for(int n=0;n<5;n++){
         w=set[n];
