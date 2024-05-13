@@ -1,4 +1,6 @@
 /*Non-Canonical Input Processing*/
+//sudo socat -d -d PTY,link=/dev/ttyS10,mode=777 PTY,link=/dev/ttyS11,mode=777
+//sudo socat -d -d PTY,link=/dev/ttyS0,mode=777 PTY,link=/dev/ttyS1,mode=777
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -17,7 +19,7 @@
 /* 5 bytes   , Transition conditions */
 #define SET_LENGHT  5 // tamanho do SET
 #define FLAG  0x5c  // ( (0x5c)) 0101 1100 flag de inicio e fim
-#define A_EM  0x03  // (0x03) 0000 0011Campo de Endereço (A) de commandos do Emissor, resposta do Receptor
+#define A_EM  0x3//0x03  // (0x03) 0000 0011Campo de Endereço (A) de commandos do Emissor, resposta do Receptor
 #define A_RE  0x01  // (0x01)0000 0001 Campo de Endereço (A) de commandos do Receptor, resposta do Emissor
 
 #define C_SET 0x08 // 0000 1000(0x08) Campo de Controlo - SET (set up)
@@ -101,8 +103,15 @@ int main(int argc, char** argv)
 // Machine State
 unsigned char buffer_hex[2],Store_hex;
 int read_resp=0;
+int  Times_Written=0;
 
 int state=0;
+
+int j;
+for( j=0;j<255;j++){
+    buf[j]='\0';
+    } /* certificar que cada posição do array esta livre*/ 
+
 
 printf("\t%d\n\n",state);
 while (STOP==FALSE)  // to last state machine
@@ -114,15 +123,26 @@ while (STOP==FALSE)  // to last state machine
     if(read_resp<0)  
         printf("Could not receive , please try again \n");
 
+//    if(read_resp==1)
+ //       Times_Written++;
+
+ 
+
+    //if(buffer_hex[0]=='\0')
+     //   STOP=1;
+    
 
 buffer_hex[1]='\0'; // ultimo espaco como \0
 Store_hex=buffer_hex[0];
+buf[j]=buffer_hex[0];
+j++;
 
 
 
 
 /* Agora State machine */
 
+printf("\n\t\t   STATE =  %i\n",state);
 
 //printf("%d : %x  :%x \n",state,Store_hex,buffer_hex[0]);
 switch (state)
@@ -136,20 +156,16 @@ case Start:
     break;
 
 case Flag_Rcv:
-    if(Store_hex==A_EM)  // basicamente se nao for  A_RE ou flag volta ao inicio
-        {
-        state=A_Rcv;
-
-        break;
-        }
-    
-    if(Store_hex==FLAG)
-        {
-        break;
-        }
-
-    state=Start;
-
+     if(Store_hex== A_EM){
+                    state = A_Rcv;
+                }
+     else if(Store_hex == FLAG){
+                   state=Flag_Rcv;                   
+                }
+                else{
+                    state = Start;
+                }
+                break;
 
 
 case A_Rcv:
@@ -158,7 +174,7 @@ case A_Rcv:
                 state = Flag_Rcv;
 
             }
-            if (Store_hex ==C_SET)
+            if (Store_hex == C_SET)
             {
                 state = C_Rcv;
 
@@ -178,16 +194,16 @@ case A_Rcv:
                 state = Flag_Rcv;
 
             }
-            if (Store_hex==BCC(A_EM,C_SET))
+            else if (Store_hex==BCC(A_EM,C_SET))
            {
-printf("erro?\n");
+//printf("erro?\n");
                 state = Bcc_Ok;
-    printf("%d",state);    
+      
             }
             else
             {
-printf("ok\n");
-printf("%d",state);
+//printf("ok\n");
+//printf("%d",state);
                 state = Start;
 
             }
@@ -201,18 +217,34 @@ printf("%d",state);
                 STOP=TRUE;
 
             }
+        else
+        {
+            state=Start;
+        }
+    break;
 
 
-
-printf("\n\t\t STATE =  %i\n",state);
 }
+
+//   printf("\t\t%d\n",Times_Written);
+/*
+    if(Times_Written==5 && state !=Stop_Final)  
+    {
+        printf("Could not reach final state machine , stop\n\n");
+        break;
+    }
+*/
 }
 
 
+printf("\n\t\t FINAL STATE =  %i\n",state);
 
+sleep(4);
+//printf("ola\n");
 
 // segunda parte inicio
-int i=0, Times_Written=0;
+int i=0; 
+Times_Written=0;
 char sent[255];
 
 
