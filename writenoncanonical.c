@@ -113,8 +113,8 @@ int main(int argc, char** argv)
 
     sent[0]= FLAG; // F
     sent[1]= A_EM; // A
-    sent[2]= C_SET; // C
-    sent[3]= 0x04;//BCC(A_EM, C_SET); // BCC
+    sent[2]=  C_SET; // C
+    sent[3]= BCC(A_EM, C_SET);//0x04;//BCC(A_EM, C_SET); // BCC
     sent[4]= FLAG; // F
 
 
@@ -133,15 +133,26 @@ for(i=0 ; i<5;i++)
 if (Times_Written!=5)  //caso nao envie algo byte
     return -1;
 
- printf("%d bytes Escritos ou enviados\n", Times_Written);
+ printf("%d bytes Escritos ou enviados\n\n\n", Times_Written);
     
 
  sleep(3); //envia mas precisa de esperar um bocado para receber ou instantaneo ?
 
 
+
+
+int j;
+for( j=0;j<255;j++){
+    buf[j]='\0';
+    } /* certificar que cada posição do array esta livre*/ 
+
+
 unsigned char buffer_hex[2],Store_hex;
 
 /*  State Machine of Reception Set Message*/
+Times_Written=0;
+int state=0;
+j=0;
 
 while (STOP==FALSE)  // to last state machine
 { 
@@ -151,44 +162,53 @@ while (STOP==FALSE)  // to last state machine
     if(read_resp<0)  
         printf("Could not receive , please try again \n");
 
+ // if(read_resp==1)
+  //      Times_Written++;
+
+ 
 
 buffer_hex[1]='\0'; // ultimo espaco como \0
 Store_hex=buffer_hex[0];
-int state=0;
+buf[j]=buffer_hex[0];
+j++;
 
 
 /* Agora State machine */
+printf("\n\t\t STATE =  %i\n",state);
+
 switch (state)
 {
 case Start:
     if(Store_hex==FLAG)
         {
         state=Flag_Rcv;
+
         }
     break;
 
 case Flag_Rcv:
-    if(Store_hex==A_RE)  // basicamente se nao for  A_RE ou flag volta ao inicio
+    if(Store_hex==A_EM)  // basicamente se nao for  A_RE ou flag volta ao inicio
         {
         state=A_Rcv;
-        break;
+        
         }
     
-    if(Store_hex==FLAG)
+    else if(Store_hex==FLAG)
         {
-        break;
+        continue;
         }
 
-    state=Start;
+    else
+     state=Start;
 
-
+    break;
 
 case A_Rcv:
-            if (Store_hex= FLAG)
+            if (Store_hex== FLAG)
             {
                 state = Flag_Rcv;
             }
-            if (Store_hex =C_UA)
+            else if (Store_hex ==C_UA)
             {
                 state = C_Rcv;
             }
@@ -201,11 +221,11 @@ case A_Rcv:
 
         case C_Rcv:
 
-            if (Store_hex= FLAG)
+            if (Store_hex== FLAG)
             {
                 state = Flag_Rcv;
             }
-            if (Store_hex=BCC(A_RE,C_UA))
+            else if (Store_hex==BCC(A_EM,C_UA))
             {
                 state = Bcc_Ok;
             }
@@ -222,21 +242,30 @@ case A_Rcv:
                 state=Stop_Final;
                 STOP=TRUE;
             }
+        else
+            state=Start;
 
+        break;
 
-
-printf("\n\n STATE =  %i",STOP);
 }
 
 
 
+/*
+   printf("\t\t%d\n",Times_Written);
+    if(Times_Written==5 && state !=Stop_Final)  
+    {
+        printf("Could not reach final state machine , stop\n\n");
+        break;
+    }
 
 
 
-
+*/
 }
 
   
+printf("\n\t\t FINAL STATE =  %i\n",state);
 
 
 
