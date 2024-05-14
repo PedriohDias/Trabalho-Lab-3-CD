@@ -59,15 +59,8 @@ int main(int argc, char** argv)
     size_t sent_lenght=sizeof(sent)/sizeof(sent[0]);
 
 
-// 255 maior numero de 8 bits , 2letras hex=8bits
 
-    if ( (argc < 2) ||
-         ((strcmp("/dev/ttyS0", argv[1])!=0) &&
-          (strcmp("/dev/ttyS1", argv[1])!=0) )) {
-        printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
-        exit(1);
-    }
-
+    
 
     /*
     Open serial port device for reading and writing and not as controlling tty
@@ -75,17 +68,7 @@ int main(int argc, char** argv)
     */
 
 
-
-
-    fd = open(argv[1], O_RDWR | O_NOCTTY );
-    if (fd < 0) { perror(argv[1]); exit(-1); }
-
-    if ( tcgetattr(fd,&oldtio) == -1) { /* save current port settings */
-        perror("tcgetattr");
-        exit(-1);
-    }
-
-  
+  Argumentos(argc, argv);
 
 
 // faz o llopen , guardando parametros de conectian serial
@@ -100,8 +83,22 @@ int main(int argc, char** argv)
     struct11.timeout=0;
 
 
-    open_result=llopen(open_result); // 1 sucesso , outro falha
-    write_result=llwrite();
+    open_result=llopen(struct1); // 1 sucesso , outro falha
+ 
+  tcflush(fd, TCIOFLUSH);
+
+    if (tcsetattr(fd,TCSANOW,&newtio) == -1) {
+        perror("tcsetattr");
+        exit(-1);
+    }
+
+    printf("New termios structure set\n");
+
+
+
+
+ 
+    write_result=llwrite(sent,sizeof(sent)); 
     llread();
     llclose();
 
