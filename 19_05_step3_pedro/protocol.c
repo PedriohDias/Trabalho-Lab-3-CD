@@ -57,8 +57,8 @@ int llopen(linkLayer connectionParameters)
     { //role 0 transmitter 
     
       struct termios newtio;
-      int  Times_Written;
-
+      int  Times_Written,i;
+       char sent[255];
     bzero(&newtio, sizeof(newtio));
     newtio.c_cflag = connectionParameters.baudRate | CS8 | CLOCAL | CREAD;
     newtio.c_iflag = IGNPAR;
@@ -74,7 +74,7 @@ int llopen(linkLayer connectionParameters)
     if(connectionParameters.role==TRANSMITTER)
 { 
     fd = open("/dev/ttyS0", O_RDWR | O_NOCTTY);
-    if (fd < 0) { perror(argv[1]); exit(-1); }
+    if (fd < 0) { printf("\nErro ao open\n "); }
 
   // comeca a enviar 5 primeirosbytes
 
@@ -87,7 +87,7 @@ int llopen(linkLayer connectionParameters)
 
 
 // enviar os 5 bytes
-
+int res;
 for(i=0 ; i<5;i++)
  {
     
@@ -109,18 +109,13 @@ if (Times_Written!=5)  //caso nao envie algo byte
 
 
 
-int j;
-for( j=0;j<255;j++){
-    buf[j]='\0';
-    } /* certificar que cada posição do array esta livre*/ 
 
 
 unsigned char buffer_hex[2],Store_hex;
 
 /*  State Machine of Reception Set Message*/
 Times_Written=0;
-int state=0;
-j=0;
+int state=0,read_resp;
 
 while (STOP==FALSE)  // to last state machine
 { 
@@ -137,8 +132,7 @@ while (STOP==FALSE)  // to last state machine
 
 buffer_hex[1]='\0'; // ultimo espaco como \0
 Store_hex=buffer_hex[0];
-buf[j]=buffer_hex[0];
-j++;
+
 
 
 /* Agora State machine */
@@ -262,7 +256,7 @@ int llwrite(char* buf, int bufSize)
 
 
   for ( i = 0; i < bufSize; i++) {
-        frame[4 + i] = buffer[i];
+        frame[4 + i] = buf[i];
                                   }
 
   unsigned char BCC2;
