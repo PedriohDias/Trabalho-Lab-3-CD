@@ -230,8 +230,8 @@ printf("\n\t\t FINAL STATE =  %i\n",state);
 
 
 
-// now return the fd;
-return fd;
+// now return the sucess;
+return 1;
 
 
 
@@ -275,6 +275,96 @@ int llwrite(char* buf, int bufSize)
         return -1;
 
       }
+
+    // verificar a frame enviarda
+    for(i=0 ; i <sizeof(bufSize);i++)
+    {
+        printf("%x",frame[i]);
+
+    }
+    
+    printf("\n Final\n");
+
+
+    // segunda parte , de receber o RR e do REJ do receiver
+
+unsigned char Control_Response[5];
+int Bytes_Recebidos;
+int Bytes_Esperados;
+int Response_Control;
+Bytes_Recebidos=0;
+Bytes_Esperados=sizeof(Control_Response);
+
+//garantir receber os 5 bytes
+while(Bytes_Recebidos<Bytes_Esperados)
+{
+    Response_Control=read(fd,Control_Response+Bytes_Recebidos,Bytes_Esperados-Bytes_Recebidos);
+
+    if(Response_Control == -1)
+        {   
+            printf("\nErro no control\n");
+            return -1;
+        }
+     if(Response_Control == 0)
+     {
+        printf("\nFinal control,fim de file\n");
+
+
+     }   
+
+    //proximo ciclo
+    Bytes_Recebidos=Response_Control;
+
+}
+
+
+int llclose(linkLayer connectionParameters, int showStatistics)
+{
+    unsigned char Disc_Frame[]={0x00,0x00,0x00,0x00,0x00};
+    int Bytes_Write;
+    
+    if(connectionParameters.role == TRANSMITTER)
+    {
+        Bytes_Write=write(fd,Disc_Frame,sizeof(Disc_Frame));
+
+            if(Bytes_Write != sizeof(Disc_Frame))
+                {
+                    printf("\nErro no disc \n");
+                    return 1; // positive value , erro 
+                }
+        printf("\nEscritos %d bits \n",Bytes_Write);
+
+
+
+
+
+
+
+
+        // falta a state machine
+
+
+    }
+
+
+
+
+
+}
+
+
+int llread(char* packet)
+{
+
+
+}
+
+
+
+
+
+
+
 
 
 }
