@@ -4,13 +4,14 @@
 #include <fcntl.h>
 #include <termios.h>
 #include <stdio.h>
+#include <time.h>
 #include <string.h>
 #include <stdlib.h>
 
 #define BAUDRATE B38400
 #define MODEMDEVICE "/dev/ttyS4"
 #define _POSIX_SOURCE 1 /* POSIX compliant source */
-#define TIMEOUT 30
+
 #define FALSE 0
 #define TRUE 1
 
@@ -29,7 +30,7 @@ unsigned char buffer_hex[2],Store_hex;
 #define C_Rcv 3
 #define Bcc_Ok 4
 #define Stop_1 5
-//DUVIDASOBREESTADO
+#define INFO 6
 #define Stop_Finall 7
 
 //Flags
@@ -41,14 +42,13 @@ unsigned char buffer_hex[2],Store_hex;
 #define SET_LENGHT  5 // tamanho do SET
 #define BCC(a,c) (a ^ c) // fazer xor a c
 
-#define C_DISC 0x0b
-#define C_I0 0x00
-#define C_I1 0x02
+#define C_DISC 0x10
+#define C_I0 0x80
+#define C_I1 0xC0
 #define C_R0 0x01
-#define C_R1 0x21
+#define C_R1 0x11
 #define C_RJ0 0x05
-#define C_RJ1 0x25
-#define ESC 0x5d
+#define C_RJ1 0x15
 
 
 
@@ -255,6 +255,11 @@ void state_machine_data()
 
     case Bcc_Ok:
 
+         state = INFO;
+         break;
+    
+    case INFO:
+
         if (Store_hex == FLAG)
         {
             state = Stop_Finall;
@@ -317,7 +322,7 @@ int llopen(linkLayer connectionParameters)
         exit(-1);
     }
 
-    printf("---- New termios structure set ----\n");
+   
 
     if (connectionParameters.role == 0)
     {
@@ -390,6 +395,261 @@ int llopen(linkLayer connectionParameters)
             return -1;
         }
     
+
+        return 1;
+    }
+
+    return -1;
+}
+
+
+int llwrite(char *buf, int bufSize)
+{
+    unsigned char escrita[(MAX_PAYLOAD_SIZE)*2 + 1], bcc2, buf1[bufSize + 1], append[4];
+    int i = 0;
+    size_t escrita_len;
+    tries = 0;
+    STOP = FALSE;
+    state = Start;
+
+    append[0] = FLAG;
+    append[1] = A_EM;
+    append[2] = C_I0;
+    if (ctrl_val % 2)
+        append[2] = C_I1;
+    append[3] = A_EM ^ C_I0;
+
+    printf("valor do controlo: 0x%02x\n", (unsigned int)(append[2] & 0xFF));
+
+    bcc2 = buf[0] ^ buf[1];
+
+    for (i = 2; i < bufSize; i++)
+    {
+        bcc2 = bcc2 ^ buf[i];
+    }
+
+    buf1[bufSize] = bcc2;
+
+    for (i = 0; i < bufSize; i++)
+    {
+        buf1[i] = buf[i];
+    }
+
+    escrita_len = strlen(escrita);
+
+    if (write_func(append, 4) == -1) {
+        return -1;
+    }
+
+    if (write_func(escrita, escrita_len) == -1) {
+        return -1;
+
+    }
+    
+
+    if (write_func(append, 1) == -1) {
+
+        return -1;
+    }
+    
+
+    while (STOP == FALSE)
+    {
+        res = read(fd, &Store_hex, 1); 
+
+        if ((res <= 0) && (state == 0))
+        {
+            if (tries < 3)
+            {
+                if (write_func(append, 4) == -1)
+                    return -1;
+
+                if (write_func(escrita, escrita_len) == -1)
+                    return -1;
+
+                if (write_func(append, 1) == -1)
+                    return -1;
+
+            }
+
+            else
+            {
+                printf("Nao comunica com o recetor\n");
+                return -1;
+            }
+
+            tries++;
+        }
+
+        state_machine_control(RR);
+    }
+
+    ctrl_val++;
+
+    printf("\n Confirmado ----\n\n");
+
+    return bufSize;
+}
+
+
+int llread(char *packet)
+{
+    int i = 0;
+    unsigned char escrita[MAX_PAYLOAD_SIZE * 2 + 6], rr[5], leitura[MAX_PAYLOAD_SIZE + 1];
+    STOP = 0;
+    state = Start;
+
+    rr[0] = FLAG;
+    rr[1] = A_EM;
+    rr[2] = C_I0;
+    if (ctrl_val % 2)
+        rr[2] = C_I1;
+    rr[3] = A_EM ^ C_I0;
+    rr[4] = FLAG;
+
+    while (STOP == FALSE)
+    {                          
+        res = read(fd, &Store_hex, 1);
+
+        if (res <= 0)
+        {
+            printf("Timeout no RCV (llread)\n");
+            return -1;
+        }
+
+        state_machine_data();
+        if (state == INFO)
+        {
+            escrita[i] = Store_hex;
+            i++;
+        }
+    }
+
+    size_t len = strlen(leitura);
+    if (len == -1)
+        return -1;
+    len--;
+    for (i = 0; i < len; i++)
+    {
+        packet[i] = leitura[i];
+    }
+    printf("Bytes recebidos: %i\n", len);
+
+    ctrl_val++;
+    printf("Control flag val: %i\n", ctrl_val);
+
+
+
+    if (write_func(rr, 5) == -1)
+        return -1;
+
+
+    return len;
+}
+
+
+int llclose(linkLayer connectionParameters, int showStatistics)
+{
+    unsigned char disc[5];
+
+    disc[0] = FLAG;
+    disc[1] = A_SET;
+    disc[2] = C_DISC;
+    disc[3] = A_SET ^ C_DISC;
+    disc[4] = FLAG;
+
+    if (connectionParameters.role == 0)
+    {
+        STOP = FALSE;
+        tries = 0;
+        state = 0;
+
+        if (write_func(disc, 5) == -1)
+            return -1;
+
+        printf("DISC enviado\n");
+
+        while (STOP == FALSE)
+        {
+            res = read(fd, &Store_hex, 1);
+
+            if ((res <= 0) && (state == 0))
+            {
+                if (tries < connectionParameters.numTries-1)
+                {
+                    if (write_func(disc, 5) == -1)
+                        return -1;
+                }
+
+                else
+                {
+                    printf("Não conectou com o recetor\n");
+                    return -1;
+                }
+
+                tries++;
+            }
+
+            state_machine_control(DISC);
+            printf("Estado: %i\n", state);
+        }
+
+
+        printf("DISC com successo\n");
+
+        if (write_func(ua, 5) == -1)
+            return -1;
+
+        printf("UA enviado---- Ficheiro enviado com sucesso ----\n");
+       
+
+        return 1;
+    }
+
+    if (connectionParameters.role == 1)
+    {
+        STOP = 0;
+        state = Start;
+
+        while (STOP == FALSE)
+        {                            
+            res = read(fd, &Store_hex, 1);
+
+            if (res <= 0)
+            {
+                printf("Timeout no RCV");
+                return -1;
+            }
+
+            state_machine_control(DISC);
+            printf("State: %i\n", state);
+        }
+
+        printf("DISC ---- successo\n");
+
+        STOP = FALSE;
+        state = 0;
+
+        if (write_func(disc, 5) == -1)
+            return -1;
+
+        printf("DISC enviadas\n");
+
+        while (STOP == FALSE)
+        {                            /* loop for input */
+            res = read(fd, &Store_hex, 1); /* returns after 1 chars have been input */
+
+            if (res <= 0)
+            {
+                printf("Timeout on RCV");
+                return -1;
+            }
+
+            state_machine_control(UA);
+            printf("Estado: %i\n", state);
+        }
+        
+        printf("UA com successo e finalizado\n");
 
         return 1;
     }
