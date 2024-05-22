@@ -52,13 +52,20 @@
 #define Frame_Adress 0x01  // sent transmiter ,sender 0x03
 
 
+struct termios newtio,oldtio;
 int fd;
+
 int llopen(linkLayer connectionParameters)
     { //role 0 transmitter 
     
-      struct termios newtio;
       int  Times_Written,i;
        char sent[255];
+
+
+        if ( tcgetattr(fd,&oldtio) == -1) { /* save current port settings */
+        perror("tcgetattr");
+        exit(-1);
+    }
     bzero(&newtio, sizeof(newtio));
     newtio.c_cflag = connectionParameters.baudRate | CS8 | CLOCAL | CREAD;
     newtio.c_iflag = IGNPAR;
@@ -355,7 +362,7 @@ if(Control_Response[0]== 0x5c && Control_Response[1]== 0x03 && Control_Response[
 
 int llclose(linkLayer connectionParameters, int showStatistics)
 {
-    unsigned char Disc_Frame[] = {0x00,0x00,0x00,0x00,0x00};
+    unsigned char Disc_Frame[] = {0x5c,0x01,0x0A,BCC(0x01,0x0A),0x5C};
     int Bytes_Write;
     
     if(connectionParameters.role == TRANSMITTER)
@@ -419,12 +426,12 @@ case Start:
     break;
 
 case Flag_Rcv:
-    if(Store_hex== 0x03)  // basicamente se nao for  A_RE ou flag volta ao inicio
+    if(Store_hex== 0x01) 
         {
         state=A_Rcv;
         
         }
-        else if(Store_hex != 0x03)
+        else if(Store_hex != 0x01)
      state=Start;
 
     break;
@@ -434,7 +441,7 @@ case A_Rcv:
             {
                 state = Flag_Rcv;
             }
-            else if (Store_hex ==0X0B)
+            else if (Store_hex ==0X0A)
             {
                 state = C_Rcv;
             }
@@ -451,7 +458,7 @@ case A_Rcv:
             {
                 state = Flag_Rcv;
             }
-            else if (Store_hex==BCC(0X01,0X0B))
+            else if (Store_hex==BCC(0X01,0X0A))
             {
                 state = Bcc_Ok;
             }
@@ -487,7 +494,7 @@ printf("\n\t\t FINAL STATE =  %i\n Received the Disc frame",state);
 }
   else 
   {
-    printf("\nNot received Ua\n");
+    printf("\nNot received Disc\n");
     return 1;
   }
 
@@ -495,7 +502,42 @@ printf("\n\t\t FINAL STATE =  %i\n Received the Disc frame",state);
 
     }
 
-return 0;
+
+// send the Ua
+char sent[255];
+
+sent[0] = FLAG;
+sent[1] = A_EM;
+sent[2] = C_UA;
+sent[3] = BCC(A_EM , C_UA);
+sent[4] = FLAG;
+
+int i;
+int Times_Written=0;
+int res;
+
+for (i=0; i<5; i++)
+{
+res=write(fd,&sent[i],1);
+ printf("Bytes written %x in %d\n",sent[i],i);
+    Times_Written+=res;
+
+
+}
+
+if (Times_Written!=5)  //caso nao envie algo byte
+    return -1;
+
+
+ printf("%d bytes Escritos ou enviados\n", Times_Written);
+
+
+
+
+
+  tcsetattr(fd,TCSANOW,&oldtio);
+    close(fd);
+    return 0;
 
 
 
