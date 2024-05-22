@@ -29,7 +29,7 @@ unsigned char buffer_hex[2],Store_hex;
 #define C_Rcv 3
 #define Bcc_Ok 4
 #define Stop_1 5
-#define DATA 6
+//DUVIDASOBREESTADO
 #define Stop_Finall 7
 
 //Flags
@@ -61,9 +61,9 @@ unsigned char buffer_hex[2],Store_hex;
 int write_func(unsigned char *vet, int tamanho)
 {
     int i=0, total=0;
-    //int res;
+    int res;
 
-     //unsigned char aux;
+     unsigned char aux;
 
     for (i = 0;i< tamanho;i++)
     {
@@ -76,7 +76,7 @@ int write_func(unsigned char *vet, int tamanho)
         return -1;
 
     printf("%d bytes written\n", total);
-    return 0;
+    return 1;
 }
 
 void state_machine_control(int control)
@@ -93,6 +93,14 @@ int read_resp=0;
 
 unsigned char buf[255];
     unsigned char print[255];
+    
+    if (Store_hex == C_I0)
+        c = C_I0;
+    else if (Store_hex == C_I1)
+        c = C_I1;
+    else if (Store_hex == C_I1)
+        c = C_I1;
+
 
     if (control == SET)
     {
@@ -112,12 +120,11 @@ unsigned char buf[255];
         c = C_DISC;
     }
 
-    else (control == RR)
+    else if (control == RR)
     {
         a = A_EM;
-        c = C_I1;
+        //c = C_I1;
     }
-
 
     switch (state)
     {
@@ -192,73 +199,227 @@ void state_machine_data()
     switch (state)
     {
 
-    case START:
+    case Start:
         if (Store_hex == FLAG)
         {
-            state = FLAG_RCV;
+            state = Flag_Rcv;
         }
         break;
 
-    case FLAG_RCV:
-        if (Store_hex == A_SET)
+    case Flag_Rcv:
+        if (Store_hex == A_EM)
         {
-            state = A_RCV;
+            state = A_Rcv;
         }
-        else if (Store_hex == FLAG_RCV)
+        else if (Store_hex == FLAG)
         {
+        	state=Flag_Rcv;
         }
         else
         {
-            state = START;
+            state = Start;
         }
         break;
 
-    case A_RCV:
+    case A_Rcv:
         if (Store_hex == FLAG)
         {
-            state = FLAG_RCV;
+            state = Flag_Rcv;
         }
         if (Store_hex == c)
         {
-            printf("\nControl flag value: 0x%02x\n\n", (unsigned int)(c & 0xFF));
-            state = C_RCV;
+            state = C_Rcv;
         }
         else
         {
-            state = START;
+            state = Start;
         }
         break;
 
-    case C_RCV:
+    case C_Rcv:
 
-        x = A_SET ^ c;
+        x = A_EM ^ c;
         if (Store_hex == FLAG)
         {
-            state = FLAG_RCV;
+            state = Flag_Rcv;
         }
         if (Store_hex == x)
         {
-            state = BCC_OK;
+            state = Bcc_Ok;
         }
         else
         {
-            state = START;
+            state = Start;
         }
         break;
 
-    case BCC_OK:
+    case Bcc_Ok:
 
-        state = DATA;
-        break;
-
-    case DATA:
         if (Store_hex == FLAG)
         {
             state = Stop_Finall;
             STOP = TRUE;
         }
-
+        else {
+            state = Start;
+            }
+            
         break;
     }
 }
+
+int llopen(linkLayer connectionParameters)
+{
+    unsigned char set[5];
+    int i = 0;
+
+    ua[0] = FLAG;
+    ua[1] = A_RE;
+    ua[2] = C_UA;
+    ua[3] = A_RE ^ C_UA;
+    ua[4] = FLAG;
+
+    fd = open(connectionParameters.serialPort, O_RDWR | O_NOCTTY);
+
+    if (fd < 0)
+    {
+        perror(connectionParameters.serialPort);
+        exit(-1);
+    }
+
+    if (tcgetattr(fd, &oldtio) == -1)
+    {
+        perror("tcgetattr");
+        exit(-1);
+    }
+
+    bzero(&newtio, sizeof(newtio));
+    newtio.c_cflag = connectionParameters.baudRate | CS8 | CLOCAL | CREAD;
+    newtio.c_iflag = IGNPAR;
+    newtio.c_oflag = 0;
+
+    newtio.c_lflag = 0;
+
+    newtio.c_cc[VTIME] = connectionParameters.timeOut * 10;
+    newtio.c_cc[VMIN] = 0;
+
+    if (connectionParameters.role == 1)
+    {
+        newtio.c_cc[VTIME] = connectionParameters.timeOut * 30;
+        newtio.c_cc[VMIN] = 0;
+    }
+
+    tcflush(fd, TCIOFLUSH);
+
+    if (tcsetattr(fd, TCSANOW, &newtio) == -1)
+    {
+        perror("tcsetattr");
+        exit(-1);
+    }
+
+    printf("---- New termios structure set ----\n");
+
+    if (connectionParameters.role == 0)
+    {
+        STOP = FALSE;
+        tries = 0;
+        state = Start;
+
+        set[0] = FLAG;
+        set[1] = A_EM;
+        set[2] = C_SET;
+        set[3] = A_EM ^ C_SET;
+        set[4] = FLAG;
+
+        if (write_func(set, 5) == -1)
+            return -1;
+
+
+        while (STOP == FALSE)
+        {
+            res = read(fd, &Store_hex, 1);
+
+            if ((res <= 0) && (state == 0)) 
+            {
+                if (tries < connectionParameters.numTries-1)
+                {
+                    if (write_func(set, 5) == -1)
+                        return -1;
+                }
+
+                else
+                {
+                    printf("Nao conecta ao recetor\n");
+                    return -1;
+                }
+
+                tries++;
+            }
+
+            printf("0x%02x\n", (unsigned int)(Store_hex & 0xFF));
+
+            state_machine_control(UA); /* Verifies that the UA message was received correctly*/
+            printf("State: %i\n", state);
+        }
+
+        printf("UA com successo\n");
+
+        return 1;
+    }
+
+    if (connectionParameters.role == 1)
+    {
+        while (STOP == FALSE)
+        {
+            res = read(fd, &Store_hex, 1); 
+
+            if (res <= 0)
+            {
+                printf("Timeout on RCV\n\n");
+                return -1;
+            }
+
+            state_machine_control(SET);
+        }
+        
+        printf("SET com sucesso\n");
+
+        if (write_func(ua, 5) == -1)
+        {
+            printf("Erro na escritura UA\n");
+            return -1;
+        }
+    
+
+        return 1;
+    }
+
+    return -1;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
