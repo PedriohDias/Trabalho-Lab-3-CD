@@ -355,7 +355,7 @@ if(Control_Response[0]== 0x5c && Control_Response[1]== 0x03 && Control_Response[
 
 int llclose(linkLayer connectionParameters, int showStatistics)
 {
-    unsigned char Disc_Frame[] = {0x00,0x00,0x00,0x00,0x00};
+    unsigned char Disc_Frame[] = {0x5c,0x01,0x0A,BCC(0x01,0x0A),0x5C};
     int Bytes_Write;
     
     if(connectionParameters.role == TRANSMITTER)
@@ -419,12 +419,12 @@ case Start:
     break;
 
 case Flag_Rcv:
-    if(Store_hex== 0x03)  // basicamente se nao for  A_RE ou flag volta ao inicio
+    if(Store_hex== 0x01) 
         {
         state=A_Rcv;
         
         }
-        else if(Store_hex != 0x03)
+        else if(Store_hex != 0x01)
      state=Start;
 
     break;
@@ -434,7 +434,7 @@ case A_Rcv:
             {
                 state = Flag_Rcv;
             }
-            else if (Store_hex ==0X0B)
+            else if (Store_hex ==0X0A)
             {
                 state = C_Rcv;
             }
@@ -451,7 +451,7 @@ case A_Rcv:
             {
                 state = Flag_Rcv;
             }
-            else if (Store_hex==BCC(0X01,0X0B))
+            else if (Store_hex==BCC(0X01,0X0A))
             {
                 state = Bcc_Ok;
             }
